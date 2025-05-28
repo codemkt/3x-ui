@@ -149,10 +149,7 @@ install_base() {
         dnf -y update && dnf install -y -q wget curl tar tzdata socat
         ;;
     ubuntu | debian | armbian)
-        apt-get update
-        # 修复部分包404问题
-        apt-get upgrade -y -q || (apt-get update --fix-missing && apt-get upgrade -y -q)
-        apt-get install -y -q wget curl tar tzdata socat
+        apt-get update && apt-get install -y -q wget curl tar tzdata socat
         ;;
     arch | manjaro | parch)
         pacman -Syu && pacman -Syu --noconfirm wget curl tar tzdata socat
@@ -292,7 +289,7 @@ install_x-ui() {
     cd /usr/local/
 
     if [ $# == 0 ]; then
-        tag_version=$(curl -Ls "https://api.github.com/repos/codemkt/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(curl -Ls "https://api.github.com/repos/dmulxw/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             echo -e "${red}Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later${plain}"
             exit 1
@@ -300,19 +297,19 @@ install_x-ui() {
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
         # 优先用wget，若无wget则尝试curl
         if command -v wget >/dev/null 2>&1; then
-            wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+            wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
         elif command -v curl >/dev/null 2>&1; then
-            curl -Lso /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+            curl -Lso /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
         else
             echo -e "${red}Neither wget nor curl is available, please install one of them first.${plain}"
             echo -e "${yellow}你可以手动下载以下链接并上传到 /usr/local/ 目录：${plain}"
-            echo "https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+            echo "https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
             exit 1
         fi
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
             echo -e "${yellow}你可以手动下载以下链接并上传到 /usr/local/ 目录：${plain}"
-            echo "https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+            echo "https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
             exit 1
         fi
     else
@@ -325,7 +322,7 @@ install_x-ui() {
             exit 1
         fi
 
-        url="https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        url="https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
         echo -e "Beginning to install x-ui $1"
         if command -v wget >/dev/null 2>&1; then
             wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(arch).tar.gz ${url}
@@ -363,7 +360,7 @@ install_x-ui() {
 
     chmod +x x-ui bin/xray-linux-$(arch)
     cp -f x-ui.service /etc/systemd/system/
-    wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/codemkt/3x-ui/main/x-ui.sh
+    wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/dmulxw/3x-ui/main/x-ui.sh
     chmod +x /usr/local/x-ui/x-ui.sh
     chmod +x /usr/bin/x-ui
     config_after_install
@@ -671,8 +668,7 @@ generate_default_site() {
     local domain="$1"
     local site_dir="/var/www/default_site"
     mkdir -p "$site_dir"
-    
-    local webzip_url="https://github.com/codemkt/3x-ui/releases/download/v2.6.0/web.zip"
+    local webzip_url="https://github.com/dmulxw/3x-ui/releases/download/trojan/web.zip"
     if curl --head --silent --fail "$webzip_url" >/dev/null; then
         tmpzip="/tmp/web.zip"
         curl -Lso "$tmpzip" "$webzip_url"
@@ -777,53 +773,45 @@ auto_ssl_and_nginx() {
     local retry=0
     local domain=""
     local email=""
-    # 优先从临时文件读取域名和邮箱
-    if [[ -f /tmp/xui_panel_domain ]]; then
-        domain=$(cat /tmp/xui_panel_domain)
-    fi
-    if [[ -f /tmp/xui_panel_email ]]; then
-        email=$(cat /tmp/xui_panel_email)
-    fi
-    # 如果没有则回退到交互输入（理论上不会触发）
-    if [[ -z "$domain" ]]; then
-        while true; do
-            echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-            echo -e "${yellow}请输入用于申请证书的域名（如 example.com）：${plain}"
-            read -r domain < /dev/tty
-            if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
-                echo "$domain" > /tmp/xui_panel_domain
-                break
-            else
-                echo -e "${red}Invalid domain format, please try again.${plain}"
-                retry=$((retry+1))
-                if [[ $retry -ge 2 ]]; then
-                    echo "Too many input errors, setup aborted."
-                    echo "输入错误次数过多，安装中止。"
-                    exit 1
-                fi
+    while true; do
+        echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
+        echo -e "${yellow}请输入用于申请证书的域名（如 example.com）：${plain}"
+        read -r domain < /dev/tty
+        # 域名校验：包含至少一个点且不是首尾，且后缀长度>=2
+        if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
+            # 保存域名用于后续 config_after_install 输出
+            echo "$domain" > /tmp/xui_panel_domain
+            break
+        else
+            echo -e "${red}Invalid domain format, please try again.${plain}"
+            echo -e "${red}域名格式不正确，请重新输入。${plain}"
+            retry=$((retry+1))
+            if [[ $retry -ge 2 ]]; then
+                echo "Too many input errors, setup aborted."
+                echo "输入错误次数过多，安装中止。"
+                exit 1
             fi
-        done
-    fi
+        fi
+    done
     retry=0
-    if [[ -z "$email" ]]; then
-        while true; do
-            echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-            echo -e "${yellow}请输入联系邮箱（Let's Encrypt 用于通知证书到期）：${plain}"
-            read -r email < /dev/tty
-            if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-                echo "$email" > /tmp/xui_panel_email
-                break
-            else
-                echo -e "${red}Invalid email format, please try again.${plain}"
-                retry=$((retry+1))
-                if [[ $retry -ge 2 ]]; then
-                    echo "Too many input errors, setup aborted."
-                    echo "输入错误次数过多，安装中止。"
-                    exit 1
-                fi
+    while true; do
+        echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
+        echo -e "${yellow}请输入联系邮箱（Let's Encrypt 用于通知证书到期）：${plain}"
+        read -r email < /dev/tty
+        # 邮箱校验：包含@和.，且后缀长度>=2
+        if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+            break
+        else
+            echo -e "${red}Invalid email format, please try again.${plain}"
+            echo -e "${red}邮箱格式不正确，请重新输入。${plain}"
+            retry=$((retry+1))
+            if [[ $retry -ge 2 ]]; then
+                echo "Too many input errors, setup aborted."
+                echo "输入错误次数过多，安装中止。"
+                exit 1
             fi
-        done
-    fi
+        fi
+    done
     install_acme
     if [ $? -ne 0 ]; then
         echo -e "${red}acme.sh installation failed.${plain}"
@@ -1018,10 +1006,10 @@ auto_ssl_and_nginx() {
     # 显示客户端下载地址
     echo -e "${green}Client download links:${plain}"
     echo -e "${green}客户端下载地址：${plain}"
-    echo "macos client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-MacOS.dmg"
-    echo "linux client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-Linux.AppImage"
-    echo "windows client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-Windows.7z"
-    echo "adroid app:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/v2rayNG_1.10.4_universal.apk"
+    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Trojan-Qt5-MacOS.dmg"
+    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Trojan-Qt5-Linux.AppImage"
+    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Trojan-Qt5-Windows.7z"
+    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Igniter-trajon-app-Android-release.apk"
     # 输出 trojan 协议链接
     if [[ -n "$trojan_url" ]]; then
         echo ""
@@ -1033,33 +1021,6 @@ auto_ssl_and_nginx() {
 }
 
 echo -e "${green}Running...${plain}"
-
-# 新增：启动时先提示用户输入域名和邮箱，并保存到临时文件，后续直接使用
-domain=""
-email=""
-while true; do
-    echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
-    echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-    read -r domain
-    if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
-        echo "$domain" > /tmp/xui_panel_domain
-        break
-    else
-        echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
-    fi
-done
-while true; do
-    echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
-    echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-    read -r email
-    if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-        echo "$email" > /tmp/xui_panel_email
-        break
-    else
-        echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
-    fi
-done
-
 install_base
 install_x-ui $1
 
