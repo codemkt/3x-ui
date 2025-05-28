@@ -991,53 +991,44 @@ pre_check_input() {
     domain="${XUI_DOMAIN:-}"
     email="${XUI_EMAIL:-}"
     
-    # 交互式模式下获取输入
-    if [[ -t 0 ]]; then  # 检查是否在交互式终端
-        # 如果没有域名,则提示输入
-        if [[ -z "$domain" ]]; then
-            retry=0
-            while [[ $retry -lt 3 ]]; do
-                echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
-                echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-                read -er domain </dev/tty || true
-                if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
-                    break
-                else
-                    echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
-                    retry=$((retry+1))
-                    if [[ $retry -ge 3 ]]; then
-                        echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                        exit 1
-                    fi
+    # 如果没有域名,则提示输入
+    if [[ -z "$domain" ]]; then
+        retry=0
+        while [[ $retry -lt 3 ]]; do
+            echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
+            echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
+            read -p "> " domain
+            if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
+                break
+            else
+                echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
+                retry=$((retry+1))
+                if [[ $retry -ge 3 ]]; then
+                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
+                    exit 1
                 fi
-            done
-        fi
+            fi
+        done
+    fi
 
-        # 如果没有邮箱,则提示输入
-        if [[ -z "$email" ]]; then
-            retry=0
-            while [[ $retry -lt 3 ]]; do
-                echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
-                echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-                read -er email </dev/tty || true
-                if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-                    break
-                else
-                    echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
-                    retry=$((retry+1))
-                    if [[ $retry -ge 3 ]]; then
-                        echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                        exit 1
-                    fi
+    # 如果没有邮箱,则提示输入  
+    if [[ -z "$email" ]]; then
+        retry=0
+        while [[ $retry -lt 3 ]]; do
+            echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
+            echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
+            read -p "> " email
+            if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+                break
+            else
+                echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
+                retry=$((retry+1))
+                if [[ $retry -ge 3 ]]; then
+                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
+                    exit 1
                 fi
-            done
-        fi
-    else
-        # 非交互式模式(通过管道运行)必须提供参数
-        echo -e "${yellow}请使用以下命令运行脚本：${plain}"
-        echo -e "${yellow}Please run the script with the following command:${plain}"
-        echo -e "${green}curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/install.sh | sudo bash -s -- --domain your-domain.com --email your-email@example.com${plain}"
-        exit 1
+            fi
+        done
     fi
 
     # 保存确认的域名和邮箱到临时文件
