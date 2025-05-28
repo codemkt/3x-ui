@@ -1041,7 +1041,7 @@ pre_check_input() {
                     echo -e "${yellow}输入次数超过限制，将继续安装面板。Input attempts exceeded, will continue panel installation.${plain}"
                     return 0
                 fi
-            done
+            fi
         done
     fi
 
