@@ -955,33 +955,64 @@ auto_ssl_and_nginx() {
 pre_check_input() {
     echo -e "${yellow}开始安装 x-ui 面板 Starting x-ui panel installation${plain}"
     echo "---------------------------------------------"
-    while true; do
-        read -p "请输入面板域名 (Please input your domain)：" domain
+    
+    domain=""
+    email=""
+    retry=0
+    max_retries=3
+    
+    # 获取域名,最多尝试3次
+    while [[ $retry -lt $max_retries ]]; do
+        echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
+        echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
+        read domain < /dev/tty
+        
         if [[ -z "$domain" ]]; then
             echo -e "${red}域名不能为空 Domain cannot be empty${plain}"
-        else
-            # 简单的域名格式检查
-            if [[ $domain =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-                break
-            else
-                echo -e "${red}域名格式不正确 Invalid domain format${plain}"
-            fi
+            ((retry++))
+            continue
         fi
+        
+        if [[ ! $domain =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            echo -e "${red}域名格式不正确 Invalid domain format${plain}"
+            ((retry++))
+            continue
+        fi
+        
+        break
     done
-    
-    while true; do
-        read -p "请输入注册邮箱 (Please input your email)：" email
+
+    if [[ $retry -eq $max_retries ]]; then
+        echo -e "${red}已达到最大重试次数,退出安装 Maximum retries reached, exiting installation${plain}"
+        exit 1
+    fi
+
+    # 获取邮箱,最多尝试3次
+    retry=0
+    while [[ $retry -lt $max_retries ]]; do
+        echo -e "${yellow}请输入用于申请SSL证书的邮箱 (如 admin@example.com)：${plain}"
+        echo -e "${yellow}Please enter the email for SSL certificate application (e.g. admin@example.com):${plain}"
+        read email < /dev/tty
+        
         if [[ -z "$email" ]]; then
             echo -e "${red}邮箱不能为空 Email cannot be empty${plain}"
-        else
-            # 简单的邮箱格式检查
-            if [[ $email =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-                break
-            else
-                echo -e "${red}邮箱格式不正确 Invalid email format${plain}"
-            fi
+            ((retry++))
+            continue
         fi
+        
+        if [[ ! $email =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            echo -e "${red}邮箱格式不正确 Invalid email format${plain}"
+            ((retry++))
+            continue
+        fi
+        
+        break
     done
+
+    if [[ $retry -eq $max_retries ]]; then
+        echo -e "${red}已达到最大重试次数,退出安装 Maximum retries reached, exiting installation${plain}"
+        exit 1
+    fi
 
     echo "$domain" > /tmp/xui_panel_domain
     echo "$email" > /tmp/xui_panel_email
