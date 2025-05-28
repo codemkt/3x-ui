@@ -765,28 +765,71 @@ EOF
 }
 
 auto_ssl_and_nginx() {
-    # 移除这里的防火墙检查
-    # check_firewall_ports  # 删除这行
+    # 1. 检查安装 acme.sh
+    if ! test -f "$HOME/.acme.sh/acme.sh"; then
+        install_acme
+        if ! test -f "$HOME/.acme.sh/acme.sh"; then
+            echo -e "${red}acme.sh installation failed, please install manually first.${plain}"
+            echo -e "${red}acme.sh 安装失败,请先手动安装${plain}"
+            return 1
+        fi
+    fi
 
-    # 管道模式下未设置时要求用户后续配置
+    # 2. 检查并释放 80/443 端口
+    if ! command -v lsof >/dev/null 2>&1; then
+        if [[ "${release}" =~ ^(ubuntu|debian|armbian)$ ]]; then
+            apt-get update && apt-get install -y lsof
+        elif [[ "${release}" =~ ^(centos|almalinux|rocky|ol)$ ]]; then
+            yum install -y lsof
+        else
+            apt-get install -y lsof || yum install -y lsof
+        fi
+    fi
+
+    for port in 80 443; do
+        if lsof -i ":$port" >/dev/null 2>&1; then
+            echo -e "${yellow}Port $port is in use, trying to free it...${plain}"
+            systemctl stop nginx 2>/dev/null
+            systemctl stop apache2 2>/dev/null
+            systemctl stop httpd 2>/dev/null
+            sleep 1
+        fi
+    done
+
+    # 3. 开启必要端口
+    for port in 80 443; do
+        if command -v firewall-cmd >/dev/null 2>&1; then
+            firewall-cmd --zone=public --add-port=${port}/tcp --permanent
+        elif command -v ufw >/dev/null 2>&1; then
+            ufw allow ${port}/tcp
+        fi
+    done
+    if command -v firewall-cmd >/dev/null 2>&1; then
+        firewall-cmd --reload
+    elif command -v ufw >/dev/null 2>&1; then
+        ufw --force enable
+    fi
+
+    # 4. 其他域名检查和证书配置逻辑保持不变
     if [[ ! -f /tmp/xui_panel_domain ]]; then
         echo -e "${yellow}未设置域名,请在安装完成后使用 x-ui 命令配置${plain}"
         echo -e "${yellow}Domain not set, please configure using x-ui command after installation${plain}"
         return 0
     fi
     
-    # 从临时文件读取之前保存的域名和邮箱
+    # 处理域名和证书
     domain=$(cat /tmp/xui_panel_domain)
     email=$(cat /tmp/xui_panel_email)
     
-    # 检查本地已有证书且有效期大于60天则复用
+    # 检查现有证书
     acme_ecc_dir="$HOME/.acme.sh/${domain}_ecc"
     acme_rsa_dir="$HOME/.acme.sh/${domain}"
     cert_file=""
     key_file=""
     reuse_cert=0
+
+    # 检查ECC证书
     if [[ -f "$acme_ecc_dir/${domain}.cer" ]]; then
-        # 检查有效期
         end_date=$(openssl x509 -in "$acme_ecc_dir/${domain}.cer" -noout -enddate 2>/dev/null | cut -d= -f2)
         if [[ -n "$end_date" ]]; then
             end_ts=$(date -d "$end_date" +%s)
@@ -800,6 +843,8 @@ auto_ssl_and_nginx() {
             fi
         fi
     fi
+
+    # 如果没有可用的ECC证书,检查RSA证书
     if [[ $reuse_cert -eq 0 && -f "$acme_rsa_dir/fullchain.cer" ]]; then
         end_date=$(openssl x509 -in "$acme_rsa_dir/fullchain.cer" -noout -enddate 2>/dev/null | cut -d= -f2)
         if [[ -n "$end_date" ]]; then
@@ -815,248 +860,89 @@ auto_ssl_and_nginx() {
         fi
     fi
 
+    # 如果没有可用证书,申请新证书
     if [[ $reuse_cert -eq 0 ]]; then
-        ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
-        ~/.acme.sh/acme.sh --register-account -m "$email"
-        ~/.acme.sh/acme.sh --issue -d "$domain" --standalone --force
+        "$HOME/.acme.sh/acme.sh" --set-default-ca --server letsencrypt
+        "$HOME/.acme.sh/acme.sh" --register-account -m "$email"
+        "$HOME/.acme.sh/acme.sh" --issue -d "$domain" --standalone --force
         if [ $? -ne 0 ]; then
             echo -e "${red}Certificate application failed, please check domain resolution and port occupation.${plain}"
             echo -e "${red}证书申请失败，请检查域名解析和端口占用${plain}"
-            echo -e "${yellow}If you have previously applied for a certificate, you can manually use the files in:${plain}"
-            echo -e "${yellow}  $acme_ecc_dir/  或  $acme_rsa_dir/${plain}"
-            echo -e "${yellow}  Example: cert: ${acme_ecc_dir}/${domain}.cer  key: ${acme_ecc_dir}/${domain}.key${plain}"
-            echo -e "${yellow}You can also check certificate expiration with:${plain}"
-            echo -e "${yellow}  openssl x509 -in <your_cert_file> -noout -enddate${plain}"
-            exit 1
+            return 1
         fi
         cert_dir="/root/cert/${domain}"
         mkdir -p "$cert_dir"
-        ~/.acme.sh/acme.sh --installcert -d "$domain" \
+        "$HOME/.acme.sh/acme.sh" --installcert -d "$domain" \
             --key-file "$cert_dir/privkey.pem" \
             --fullchain-file "$cert_dir/fullchain.pem"
+        cert_file="$cert_dir/fullchain.pem"
+        key_file="$cert_dir/privkey.pem"
     fi
 
-    # 后续优先使用 cert_file/key_file，如果为空再走原有逻辑
+    # 为x-ui配置证书
     if [[ -n "$cert_file" && -n "$key_file" ]]; then
         /usr/local/x-ui/x-ui cert -webCert "$cert_file" -webCertKey "$key_file"
         /usr/local/x-ui/x-ui setting -subCertFile "$cert_file" -subKeyFile "$key_file"
         echo -e "${green}Certificate configured for x-ui: $cert_file${plain}"
         systemctl restart x-ui
-    else
-        # 检查acme.sh ECC证书文件是否存在，优先直接写入x-ui配置
-        acme_ecc_dir="$HOME/.acme.sh/${domain}_ecc"
-        if [[ -f "$acme_ecc_dir/${domain}.cer" && -f "$acme_ecc_dir/${domain}.key" ]]; then
-            /usr/local/x-ui/x-ui cert -webCert "$acme_ecc_dir/${domain}.cer" -webCertKey "$acme_ecc_dir/${domain}.key"
-            /usr/local/x-ui/x-ui setting -subCertFile "$acme_ecc_dir/${domain}.cer" -subKeyFile "$acme_ecc_dir/${domain}.key"
-            cert_file="$acme_ecc_dir/${domain}.cer"
-            key_file="$acme_ecc_dir/${domain}.key"
-            echo -e "${green}acme.sh ECC certificate used for x-ui.${plain}"
-            echo -e "${green}已直接使用acme.sh ECC证书文件配置x-ui${plain}"
-            systemctl restart x-ui
-        else
-            acme_rsa_dir="$HOME/.acme.sh/${domain}"
-            if [[ -f "$acme_rsa_dir/fullchain.cer" && -f "$acme_rsa_dir/${domain}.key" ]]; then
-                /usr/local/x-ui/x-ui cert -webCert "$acme_rsa_dir/fullchain.cer" -webCertKey "$acme_rsa_dir/${domain}.key"
-                /usr/local/x-ui/x-ui setting -subCertFile "$acme_rsa_dir/fullchain.cer" -subKeyFile "$acme_rsa_dir/${domain}.key"
-                cert_file="$acme_rsa_dir/fullchain.cer"
-                key_file="$acme_rsa_dir/${domain}.key"
-                echo -e "${green}acme.sh RSA certificate used for x-ui.${plain}"
-                echo -e "${green}已直接使用acme.sh RSA证书文件配置x-ui${plain}"
-                systemctl restart x-ui
-            else
-                echo -e "${red}No valid certificate file found, please check acme.sh output and certificate path manually.${plain}"
-                echo -e "${red}未找到可用的证书文件，请手动检查acme.sh输出和证书路径${plain}"
-                exit 1
-            fi
-        fi
     fi
 
-    # 自动续期
+    # 配置证书自动续期
     if ! crontab -l 2>/dev/null | grep -q 'acme.sh --cron'; then
-        (crontab -l 2>/dev/null; echo "0 2 1 */2 * ~/.acme.sh/acme.sh --cron --home ~/.acme.sh > /dev/null") | crontab -
+        (crontab -l 2>/dev/null; echo "0 2 1 */2 * $HOME/.acme.sh/acme.sh --cron --home $HOME/.acme.sh > /dev/null") | crontab -
         echo -e "${green}acme.sh auto-renewal scheduled every 2 months.${plain}"
-        echo -e "${green}已设置acme.sh自动续期定时任务（每2个月1号凌晨2点自动续期）${plain}"
     fi
-    # 安装并配置nginx，传递实际证书路径
+
+    # 安装和配置nginx
     install_nginx_with_cert "$domain" "$cert_file" "$key_file"
 
-    # 新增：自动添加 Trojan 入站（与 add_inbound.sh 保持一致）
+    # 自动添加 Trojan 入站
     if [[ -n "$cert_file" && -n "$key_file" ]]; then
         trojan_port=$(shuf -i 10000-60000 -n 1)
-        trojan_user=$(gen_random_string 12)
         trojan_pass=$(gen_random_string 16)
         remark="Tr_$(date +%y%m%d%H%M%S)$(gen_random_string 2)"
         protocol="trojan"
-        alpn_default="h3%2Ch2%2Chttp%2F1.1"
-        network_default="tcp"
-        security_default="tls"
-        fp_default="chrome"
-        trojan_alpn="${alpn_default}"
-        trojan_network="${network_default}"
-        trojan_security="${security_default}"
-        trojan_fp="${fp_default}"
-        cerfile="$cert_file"
-        keyfile="$key_file"
-        trojan_url="trojan://${trojan_pass}@${domain}:${trojan_port}?type=${trojan_network}&security=${trojan_security}&fp=${trojan_fp}&cerfile=${cerfile}&keyfile=${keyfile}&alpn=${trojan_alpn}#${remark}"
+        
+        # 添加证书和密钥文件路径
+        trojan_url="trojan://${trojan_pass}@${domain}:${trojan_port}?type=tcp&security=tls&fp=chrome&allowInsecure=0&cerfile=${cert_file}&keyfile=${key_file}#${remark}"
 
         echo -e "${yellow}正在添加 Trojan 入站...${plain}"
         add_output=$(/usr/local/x-ui/x-ui setting -AddInbound "$trojan_url" 2>&1)
         add_status=$?
         if [[ $add_status -eq 0 ]]; then
-            echo "$add_output"
             echo -e "${green}Trojan 入站已自动添加，信息如下：${plain}"
             echo "---------------------------------------------"
             echo "Remark: $remark"
             echo "Protocol: $protocol"
             echo "Port: $trojan_port"
-            echo "Username: $trojan_user"
             echo "Password: $trojan_pass"
             echo "TLS: enabled"
             echo "Certificate: $cert_file"
             echo "Key: $key_file"
-            echo "ALPN: h3,h2,http/1.1"
             echo "---------------------------------------------"
-            trojan_url_client="trojan://${trojan_pass}@${domain}:${trojan_port}?type=${trojan_network}&security=${trojan_security}&fp=${trojan_fp}&alpn=${trojan_alpn}#${remark}"
-            echo ""
-            echo -e "${green}Trojan 客户端导入链接如下：${plain}"
-            echo -e "${green}Trojan Client app import link：${plain}"
-            echo "$trojan_url_client"
-            echo ""
-            # 自动开放 Trojan 端口
-            if command -v firewall-cmd &>/dev/null && firewall-cmd --state &>/dev/null; then
+            echo -e "${green}Trojan 客户端导入链接：${plain}"
+            echo "$trojan_url"
+            
+            # 开放 Trojan 端口
+            if command -v firewall-cmd >/dev/null 2>&1; then
                 firewall-cmd --permanent --add-port=${trojan_port}/tcp
                 firewall-cmd --reload
-                echo -e "${green}已自动开放 Trojan 端口(Open for trojan inbound firewall port  ): $trojan_port (firewalld)${plain}"
-            elif command -v ufw &>/dev/null; then
+            elif command -v ufw >/dev/null 2>&1; then
                 ufw allow ${trojan_port}/tcp
-                ufw --force enable
-                echo -e "${green}已自动开放 Trojan 端口(Open for trojan inbound firewall port  ): $trojan_port (ufw)${plain}"
             fi
-            # 新增：添加Trojan后重启xray
-            if command -v systemctl &>/dev/null; then
-                systemctl restart x-ui
-                echo -e "${green}xray 已重启 (xray restarted after adding trojan inbound)${plain}"
-            fi
+            
+            # 重启xray
+            systemctl restart x-ui
         else
-            echo -e "${red}Trojan 入站添加失败，返回信息如下(Add trojan inbound)：${plain}"
+            echo -e "${red}Trojan 入站添加失败：${plain}"
             echo "$add_output"
         fi
     fi
-
-    # 安装结束后统一输出登录信息。
-    if [[ -f /tmp/xui_install_info ]]; then
-        echo -e "\n${yellow}Panel login information below, please keep it safe:${plain}"
-        echo -e "${yellow}面板登录信息如下，请妥善保存：${plain}"
-        cat /tmp/xui_install_info
-        # 新增：如果有域名和端口，输出域名登录链接
-        if [[ -n "$domain" && -n "$cert_file" ]]; then
-            webBasePath=$(/usr/local/x-ui/x-ui setting -show true | grep -Eo 'webBasePath: .+' | awk '{print $2}')
-            # 去除前后斜杠，只保留中间内容
-            webBasePathClean=$(echo "$webBasePath" | sed 's#^/*##;s#/*$##')
-            panel_port=$(/usr/local/x-ui/x-ui setting -show true | grep -Eo 'port: .+' | awk '{print $2}')
-            protocol="https"
-            if [[ -n "$webBasePathClean" && -n "$panel_port" ]]; then
-                echo -e "${green}Domain login link: ${protocol}://${domain}:${panel_port}/${webBasePathClean}${plain}"
-                echo -e "${green}域名登录链接：${protocol}://${domain}:${panel_port}/${webBasePathClean}${plain}"
-            fi
-        fi
-        rm -f /tmp/xui_install_info
-    fi
-
-    # 显示客户端下载地址
-    echo -e "${green}Client download links:${plain}"
-    echo -e "${green}客户端下载地址：${plain}"
-    echo "macos client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-MacOS.dmg"
-    echo "linux client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-Linux.AppImage"
-    echo "windows client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-Windows.7z"
-    echo "adroid app:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/v2rayNG_1.10.4_universal.apk"
-    # 输出 trojan 协议链接
-    if [[ -n "$trojan_url" ]]; then
-        echo ""
-        echo -e "${green}Trojan 客户端导入链接如下：${plain}"
-        echo -e "${green}Trojan Client app import link：${plain}"
-        echo "$trojan_url"
-        echo ""
-    fi
 }
 
-pre_check_input() {
-    # 从环境变量或命令行参数获取域名和邮箱
-    domain="${XUI_DOMAIN:-}"
-    email="${XUI_EMAIL:-}"
-    
-    # 如果没有域名,则提示输入
-    if [[ -z "$domain" ]]; then
-        retry=0
-        while [[ $retry -lt 3 ]]; do
-            echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
-            echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-            read domain < /dev/tty
-            if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
-                break
-            else
-                echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
-                retry=$((retry+1))
-                if [[ $retry -ge 3 ]]; then
-                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                    exit 1
-                fi
-            fi
-        done
-    fi
-
-    # 如果没有邮箱,则提示输入  
-    if [[ -z "$email" ]]; then
-        retry=0
-        while [[ $retry -lt 3 ]]; do
-            echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
-            echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-            read email < /dev/tty
-            if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-                break
-            else
-                echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
-                retry=$((retry+1))
-                if [[ $retry -ge 3 ]]; then
-                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                    exit 1
-                fi
-            fi
-        done
-    fi
-
-    # 保存确认的域名和邮箱到临时文件
-    echo "$domain" > /tmp/xui_panel_domain
-    echo "$email" > /tmp/xui_panel_email
-    
-    echo -e "${green}域名: ${domain}${plain}"
-    echo -e "${green}邮箱: ${email}${plain}"
-}
-
-# 支持命令行参数传入域名和邮箱
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --domain)
-            XUI_DOMAIN="$2"
-            shift 2
-            ;;
-        --email)
-            XUI_EMAIL="$2"
-            shift 2
-            ;;
-        *)
-            shift
-            ;;
-    esac
-done
-
-# 在进行系统检查和安装之前先获取输入
+# 修改主流程调用顺序
 pre_check_input
-
 install_base
 install_x-ui $1
-
-# 自动化SSL证书、nginx、默认站点、证书路径写入 
 auto_ssl_and_nginx
-# 最后执行防火墙配置
 check_firewall_ports
