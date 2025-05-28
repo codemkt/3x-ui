@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 [English](/README.md) | [فارسی](/README.fa_IR.md) | [中文](/README.zh_CN.md) | [Español](/README.es_ES.md) | [Русский](/README.ru_RU.md)
 
 <p align="center">
@@ -637,3 +638,7 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 **注意：**  
 - 你可以参考原项目的 [release.yml](https://github.com/MHSanaei/3x-ui/blob/main/.github/workflows/release.yml) 自动化脚本，实现自动编译和打包。
 - 手动打包时，确保所有运行所需文件都包含在压缩包内。
+=======
+# 3x-ui
+一键安装Trojan，自动加入SSL证书，防火墙，自动增加Trojan协议链接。One-click installation of Trojan, automatic SSL certificate integration, firewall configuration, and automatic generation of Trojan protocol links.
+>>>>>>> 214f4d34117c51de7ed1b21d90236479d767226d
