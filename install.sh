@@ -558,20 +558,14 @@ check_firewall_ports() {
         echo -e "${green}Fail2Ban SSH protection enabled, started and enabled on boot.${plain}"
     fi
 
-    # 系统升级
-    if [[ "${release}" =~ ^(centos|almalinux|rocky|ol|fedora|amzn)$ ]]; then
-        dnf update -y
-        echo -e "${green}系统已升级 (System upgraded with dnf update -y)${plain}"
-    elif [[ "${release}" =~ ^(ubuntu|debian|armbian)$ ]]; then
-        apt update && apt upgrade -y
-        echo -e "${green}系统已升级 (System upgraded with apt update && apt upgrade -y)${plain}"
-    fi
-
-    # 设置每日凌晨4点自动重启（如需要）
-    if ! crontab -l 2>/dev/null | grep -q "auto-reboot-4am"; then
-        (crontab -l 2>/dev/null; echo "0 4 * * * /usr/bin/needs-restarting -r &>/dev/null && /sbin/reboot # auto-reboot-4am") | crontab -
-        echo -e "${green}已设置每日凌晨4点自动检查并重启系统（如有必要）。${plain}"
-        echo -e "${green}Auto reboot at 4am if needed is scheduled.${plain}"
+    # 设置自动更新和重启
+    if ! crontab -l 2>/dev/null | grep -q "auto-update"; then
+        # 添加每天凌晨3点自动更新
+        (crontab -l 2>/dev/null; echo "0 3 * * * if command -v apt-get >/dev/null; then apt-get update && apt-get upgrade -y; elif command -v dnf >/dev/null; then dnf update -y; fi # auto-update") | crontab -
+        # 添加每天凌晨4点检查并按需重启
+        (crontab -l 2>/dev/null; echo "0 4 * * * if [[ -f /var/run/reboot-required ]]; then /sbin/reboot; elif command -v needs-restarting >/dev/null; then /usr/bin/needs-restarting -r &>/dev/null && /sbin/reboot; fi # auto-reboot-4am") | crontab -
+        echo -e "${green}已设置每日凌晨3点自动更新系统,凌晨4点检查并按需重启。${plain}"
+        echo -e "${green}Scheduled system update at 3am and reboot check at 4am daily if needed.${plain}"
     fi
 }
 
@@ -769,10 +763,8 @@ EOF
 }
 
 auto_ssl_and_nginx() {
-    # 检查端口占用
-    check_port_occupied
-    # 检查防火墙
-    check_firewall_ports
+    # 移除这里的防火墙检查
+    # check_firewall_ports  # 删除这行
 
     # 管道模式下未设置时要求用户后续配置
     if [[ ! -f /tmp/xui_panel_domain ]]; then
@@ -879,9 +871,9 @@ auto_ssl_and_nginx() {
 
     # 自动续期
     if ! crontab -l 2>/dev/null | grep -q 'acme.sh --cron'; then
-        (crontab -l 2>/dev/null; echo "0 3 1 */2 * ~/.acme.sh/acme.sh --cron --home ~/.acme.sh > /dev/null") | crontab -
+        (crontab -l 2>/dev/null; echo "0 2 1 */2 * ~/.acme.sh/acme.sh --cron --home ~/.acme.sh > /dev/null") | crontab -
         echo -e "${green}acme.sh auto-renewal scheduled every 2 months.${plain}"
-        echo -e "${green}已设置acme.sh自动续期定时任务（每2个月1号凌晨3点自动续期）${plain}"
+        echo -e "${green}已设置acme.sh自动续期定时任务（每2个月1号凌晨2点自动续期）${plain}"
     fi
     # 安装并配置nginx，传递实际证书路径
     install_nginx_with_cert "$domain" "$cert_file" "$key_file"
@@ -1064,3 +1056,5 @@ install_x-ui $1
 
 # 自动化SSL证书、nginx、默认站点、证书路径写入 
 auto_ssl_and_nginx
+# 最后执行防火墙配置
+check_firewall_ports
