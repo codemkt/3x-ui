@@ -572,6 +572,29 @@ check_firewall_ports() {
 }
 
 install_acme() {
+    # 检查并安装 cron
+    if ! command -v crontab >/dev/null 2>&1; then
+        echo -e "${yellow}Installing cron service...${plain}"
+        echo -e "${yellow}正在安装 cron 服务...${plain}"
+        if [[ "${release}" =~ ^(ubuntu|debian|armbian)$ ]]; then
+            apt-get update && apt-get install -y cron
+        elif [[ "${release}" =~ ^(centos|almalinux|rocky|ol)$ ]]; then
+            yum install -y cronie
+        elif [[ "${release}" =~ ^(fedora|amzn)$ ]]; then
+            dnf install -y cronie
+        elif [[ "${release}" =~ ^(arch|manjaro|parch)$ ]]; then
+            pacman -Sy --noconfirm cronie
+        elif [[ "${release}" == "opensuse-tumbleweed" ]]; then
+            zypper install -y cron
+        else
+            apt-get install -y cron || yum install -y cronie
+        fi
+        
+        # 启动 cron 服务
+        systemctl enable cron || systemctl enable crond
+        systemctl start cron || systemctl start crond
+    fi
+    
     # 检查 tar 是否存在，否则提示
     if ! command -v tar >/dev/null 2>&1; then
         echo -e "${red}tar not detected, acme.sh and certificate features will not work.${plain}"
@@ -612,18 +635,7 @@ install_acme() {
             echo -e "${yellow}请手动安装 socat，否则证书签发会失败。${plain}"
             echo -e "${yellow}CentOS/RHEL/AlmaLinux/Rocky:  yum install -y socat"
             echo -e "Debian/Ubuntu:                apt-get install -y socat"
-            echo -e "If yum/apt sources are unavailable, you can manually download socat rpm or deb packages for offline installation:"
-            echo -e "如 yum/apt 源不可用，可手动下载 socat rpm 或 deb 包离线安装："
-            echo -e "CentOS 8 rpm: https://mirrors.aliyun.com/centos/8/AppStream/x86_64/os/Packages/socat-1.7.3.3-2.el8.x86_64.rpm"
-            echo -e "Debian 11 deb: https://mirrors.edge.kernel.org/debian/pool/main/s/socat/socat_1.7.4.1-3_amd64.deb"
-            echo -e "After downloading, execute (for rpm):"
-            echo -e "下载后执行（以 rpm 为例）："
-            echo -e "rpm -ivh socat-*.rpm"
-            echo -e "Or (for deb):"
-            echo -e "或（以 deb 为例）："
-            echo -e "dpkg -i socat_*.deb"
-            echo -e "More ways to get socat: https://pkgs.org/search/?q=socat"
-            echo -e "更多获取方式见：https://pkgs.org/search/?q=socat"
+            echo -e "Arch/Manjaro:                 pacman -Sy --noconfirm socat"
             echo -e "${yellow}If you cannot install socat, you can try DNS mode to apply for a certificate, refer to:${plain}"
             echo -e "${yellow}如无法安装 socat，可尝试 DNS 模式申请证书，参考：https://github.com/acmesh-official/acme.sh/wiki/dnsapi${plain}"
             # 不终止，继续尝试后续步骤
@@ -638,7 +650,7 @@ install_acme() {
     echo -e "${yellow}Installing acme.sh...${plain}"
     echo -e "${yellow}正在安装 acme.sh...${plain}"
     # 优先尝试 acme.sh 官方脚本
-    curl -s https://get.acme.sh | sh
+    curl -s https://get.acme.sh | sh -s -- --force
     if [ $? -ne 0 ] || [ ! -f ~/.acme.sh/acme.sh ]; then
         echo -e "${red}acme.sh official script installation failed, trying jsdelivr China mirror...${plain}"
         echo -e "${red}acme.sh 官方脚本安装失败，尝试使用 jsdelivr 国内镜像源...${plain}"
