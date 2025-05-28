@@ -997,7 +997,7 @@ pre_check_input() {
         while [[ $retry -lt 3 ]]; do
             echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
             echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-            read -p "> " domain
+            read domain < /dev/tty
             if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
                 break
             else
@@ -1017,7 +1017,7 @@ pre_check_input() {
         while [[ $retry -lt 3 ]]; do
             echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
             echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-            read -p "> " email
+            read email < /dev/tty
             if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
                 break
             else
