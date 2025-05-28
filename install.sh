@@ -137,31 +137,33 @@ install_base() {
             dnf clean all
             dnf makecache
         fi
-        # 检查wget/curl/tar是否已安装，否则单独尝试安装
-        for pkg in wget curl tar; do
+
+        # 只安装必需包,不做升级
+        for pkg in wget curl tar socat tzdata; do
             if ! command -v $pkg >/dev/null 2>&1; then
-                yum install -y $pkg
+                DEBIAN_FRONTEND=noninteractive yum install -y $pkg
             fi
         done
-        yum -y update && yum install -y -q wget curl tar tzdata socat
         ;;
     fedora | amzn)
-        dnf -y update && dnf install -y -q wget curl tar tzdata socat
+        # 只安装必需包
+        DEBIAN_FRONTEND=noninteractive dnf install -y -q wget curl tar tzdata socat
         ;;
     ubuntu | debian | armbian)
-        apt-get update
-        # 修复部分包404问题
-        apt-get upgrade -y -q || (apt-get update --fix-missing && apt-get upgrade -y -q)
-        apt-get install -y -q wget curl tar tzdata socat
+        # 只安装必需包
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -q wget curl tar tzdata socat
         ;;
     arch | manjaro | parch)
-        pacman -Syu && pacman -Syu --noconfirm wget curl tar tzdata socat
+        # 只安装必需包
+        pacman -Sy --noconfirm wget curl tar tzdata socat
         ;;
     opensuse-tumbleweed)
-        zypper refresh && zypper -q install -y wget curl tar timezone socat
+        # 只安装必需包
+        zypper -n install wget curl tar timezone socat
         ;;
     *)
-        apt-get update && apt install -y -q wget curl tar tzdata socat
+        # 只安装必需包
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -q wget curl tar tzdata socat
         ;;
     esac
 }
