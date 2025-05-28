@@ -993,14 +993,14 @@ pre_check_input() {
     
     # 如果没有通过参数指定且是管道运行,则使用默认值
     if [[ -z "$domain" && ! -t 0 ]]; then
-        echo -e "${yellow}在非交互模式下未指定域名,将在后续配置中设置${plain}"
-        echo -e "${yellow}Domain not specified in non-interactive mode, will configure later${plain}"
+        echo -e "${yellow}在非交互模式下未指定域名,将继续安装面板${plain}"
+        echo -e "${yellow}Domain not specified in non-interactive mode, will continue panel installation${plain}"
         return 0
     fi
     
     if [[ -z "$email" && ! -t 0 ]]; then
-        echo -e "${yellow}在非交互模式下未指定邮箱,将在后续配置中设置${plain}"
-        echo -e "${yellow}Email not specified in non-interactive mode, will configure later${plain}"
+        echo -e "${yellow}在非交互模式下未指定邮箱,将继续安装面板${plain}"
+        echo -e "${yellow}Email not specified in non-interactive mode, will continue panel installation${plain}"
         return 0
     fi
 
@@ -1018,8 +1018,8 @@ pre_check_input() {
                 echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
                 retry=$((retry+1))
                 if [[ $retry -ge 3 ]]; then
-                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                    exit 1
+                    echo -e "${yellow}输入次数超过限制，将继续安装面板。Input attempts exceeded, will continue panel installation.${plain}"
+                    return 0
                 fi
             fi
         done
@@ -1038,11 +1038,18 @@ pre_check_input() {
                 echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
                 retry=$((retry+1))
                 if [[ $retry -ge 3 ]]; then
-                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                    exit 1
+                    echo -e "${yellow}输入次数超过限制，将继续安装面板。Input attempts exceeded, will continue panel installation.${plain}"
+                    return 0
                 fi
             done
         done
+    fi
+
+    if [[ -n "$domain" ]]; then
+        echo "$domain" > /tmp/xui_panel_domain
+    fi
+    if [[ -n "$email" ]]; then
+        echo "$email" > /tmp/xui_panel_email
     fi
 }
 
@@ -1066,57 +1073,8 @@ done
 # 在进行系统检查和安装之前先获取输入
 pre_check_input
 
-# 确保从终端读取输入，但如果有命令行参数则使用参数值
-domain="${XUI_DOMAIN:-}"
-email="${XUI_EMAIL:-}"
-
-if [[ -z "$domain" ]]; then
-    if [[ -t 0 ]]; then  # 如果是交互式终端
-        retry=0
-        while [[ $retry -lt 3 ]]; do
-            echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
-            echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-            read -er domain </dev/tty || true
-            if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
-                echo "$domain" > /tmp/xui_panel_domain
-                break
-            else
-                echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
-                retry=$((retry+1))
-                if [[ $retry -ge 3 ]]; then
-                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                    exit 1
-                fi
-            fi
-        done
-    else
-        echo -e "${red}请使用 --domain 参数指定域名。Please specify domain using --domain parameter.${plain}"
-        exit 1
-    fi
-fi
-
-retry=0
-if [[ -z "$email" ]]; then
-    while [[ $retry -lt 3 ]]; do
-        echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
-        echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-        read -er email </dev/tty || true
-        if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-            echo "$email" > /tmp/xui_panel_email
-            break
-        else
-            echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
-            retry=$((retry+1))
-            if [[ $retry -ge 3 ]]; then
-                echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                exit 1
-            fi
-        fi
-    done
-fi
-
 install_base
 install_x-ui $1
 
-# 自动化SSL证书、nginx、默认站点、证书路径写入
+# 自动化SSL证书、nginx、默认站点、证书路径写入 
 auto_ssl_and_nginx
