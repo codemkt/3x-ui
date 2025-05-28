@@ -427,7 +427,7 @@ install_x-ui() {
 }
 
 check_firewall_ports() {
-    # 检查并开放 80, 443, x-ui 面板端口, SSH 端口，关闭其他端口
+    # 检查并开放 80, 443, x-ui 面板端口, SSH 端口以及 trojan 端口
     local panel_port
     panel_port=$(/usr/local/x-ui/x-ui setting -show true | grep -Eo 'port: .+' | awk '{print $2}')
     if [[ -z "$panel_port" ]]; then
@@ -439,7 +439,15 @@ check_firewall_ports() {
     if [[ -z "$ssh_port" ]]; then
         ssh_port=22
     fi
+
+    # 获取 trojan inbound 端口
     local open_ports="80 443 $panel_port $ssh_port"
+    if [[ -n "$trojan_port" ]]; then
+        open_ports="$open_ports $trojan_port"
+        echo -e "${green}将开放 Trojan 入站端口: ${trojan_port}${plain}"
+        echo -e "${green}Opening Trojan inbound port: ${trojan_port}${plain}"
+    fi
+
     local closed_ports=()
     local fw_hint=""
     # firewalld
@@ -464,9 +472,9 @@ check_firewall_ports() {
         done
         firewall-cmd --reload
         #: ${closed_ports[*]}
-        echo -e "${green}已开放端口: 80, 443, $panel_port, $ssh_port${plain}"
+        echo -e "${green}已开放端口: ${open_ports}${plain}"
         echo -e "${green}已关闭其他端口${plain}"
-        echo -e "${green}Open ports: 80, 443, $panel_port, $ssh_port${plain}"
+        echo -e "${green}Open ports: ${open_ports}${plain}"
         echo -e "${green}Closed other ports${plain}"
         fw_hint="firewall-cmd --permanent --add-port=端口号(Port Number)/tcp && firewall-cmd --reload"
     elif command -v ufw &>/dev/null; then
@@ -489,9 +497,9 @@ check_firewall_ports() {
         done
         ufw --force enable
         #: ${closed_ports[*]}
-        echo -e "${green}已开放端口: 80, 443, $panel_port, $ssh_port${plain}"
+        echo -e "${green}已开放端口: ${open_ports}${plain}"
         echo -e "${green}已关闭其他端口${plain}"
-        echo -e "${green}Open ports: 80, 443, $panel_port, $ssh_port${plain}"
+        echo -e "${green}Open ports: ${open_ports}${plain}"
         echo -e "${green}Closed other ports${plain}"
         fw_hint="ufw allow 端口号(Port Number)/tcp"
     fi
