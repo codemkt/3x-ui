@@ -789,7 +789,7 @@ auto_ssl_and_nginx() {
         while true; do
             echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
             echo -e "${yellow}请输入用于申请证书的域名（如 example.com）：${plain}"
-            read -r domain < /dev/tty
+            read -rp "Web Domain:" domain
             if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
                 echo "$domain" > /tmp/xui_panel_domain
                 break
@@ -809,7 +809,7 @@ auto_ssl_and_nginx() {
         while true; do
             echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
             echo -e "${yellow}请输入联系邮箱（Let's Encrypt 用于通知证书到期）：${plain}"
-            read -r email < /dev/tty
+            read -rp "Email:" email
             if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
                 echo "$email" > /tmp/xui_panel_email
                 break
@@ -1037,26 +1037,33 @@ echo -e "${green}Running...${plain}"
 # 新增：启动时先提示用户输入域名和邮箱，并保存到临时文件，后续直接使用
 domain=""
 email=""
-while true; do
+# 域名输入，允许3次，3次都不对则跳过
+retry=0
+while [[ $retry -lt 3 ]]; do
     echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
     echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-    read -r domain
+    read -rp "Web Domain: " domain
     if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
         echo "$domain" > /tmp/xui_panel_domain
         break
     else
         echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
+        retry=$((retry+1))
     fi
 done
-while true; do
+
+# 邮箱输入，允许3次，3次都不对则跳过
+retry=0
+while [[ $retry -lt 3 ]]; do
     echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
     echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-    read -r email
+    read -rp "Email: " email
     if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
         echo "$email" > /tmp/xui_panel_email
         break
     else
         echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
+        retry=$((retry+1))
     fi
 done
 
