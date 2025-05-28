@@ -773,6 +773,13 @@ auto_ssl_and_nginx() {
     check_port_occupied
     # 检查防火墙
     check_firewall_ports
+
+    # 管道模式下未设置时要求用户后续配置
+    if [[ ! -f /tmp/xui_panel_domain ]]; then
+        echo -e "${yellow}未设置域名,请在安装完成后使用 x-ui 命令配置${plain}"
+        echo -e "${yellow}Domain not set, please configure using x-ui command after installation${plain}"
+        return 0
+    fi
     
     # 从临时文件读取之前保存的域名和邮箱
     domain=$(cat /tmp/xui_panel_domain)
@@ -984,54 +991,58 @@ pre_check_input() {
     domain="${XUI_DOMAIN:-}"
     email="${XUI_EMAIL:-}"
     
-    if [[ -z "$domain" ]]; then
-        if [[ -t 0 ]]; then  # 检查是否在交互式终端
-            retry=0
-            while [[ $retry -lt 3 ]]; do
-                echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
-                echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
-                read -er domain </dev/tty || true
-                if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
-                    echo "$domain" > /tmp/xui_panel_domain
-                    break
-                else
-                    echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
-                    retry=$((retry+1))
-                    if [[ $retry -ge 3 ]]; then
-                        echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                        exit 1
-                    fi
-                fi
-            done
-        else
-            echo -e "${red}请使用 --domain 参数指定域名。Please specify domain using --domain parameter.${plain}"
-            exit 1
-        fi
+    # 如果没有通过参数指定且是管道运行,则使用默认值
+    if [[ -z "$domain" && ! -t 0 ]]; then
+        echo -e "${yellow}在非交互模式下未指定域名,将在后续配置中设置${plain}"
+        echo -e "${yellow}Domain not specified in non-interactive mode, will configure later${plain}"
+        return 0
+    fi
+    
+    if [[ -z "$email" && ! -t 0 ]]; then
+        echo -e "${yellow}在非交互模式下未指定邮箱,将在后续配置中设置${plain}"
+        echo -e "${yellow}Email not specified in non-interactive mode, will configure later${plain}"
+        return 0
     fi
 
-    if [[ -z "$email" ]]; then
-        if [[ -t 0 ]]; then  # 检查是否在交互式终端
-            retry=0
-            while [[ $retry -lt 3 ]]; do
-                echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
-                echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
-                read -er email </dev/tty || true
-                if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-                    echo "$email" > /tmp/xui_panel_email
-                    break
-                else
-                    echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
-                    retry=$((retry+1))
-                    if [[ $retry -ge 3 ]]; then
-                        echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
-                        exit 1
-                    fi
+    # 交互式模式下获取输入
+    if [[ -z "$domain" && -t 0 ]]; then
+        retry=0
+        while [[ $retry -lt 3 ]]; do
+            echo -e "${yellow}请输入用于申请SSL证书的域名 (如 example.com)：${plain}"
+            echo -e "${yellow}Please enter the domain name for SSL certificate application (e.g. example.com):${plain}"
+            read -er domain </dev/tty || true
+            if [[ "$domain" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; then
+                echo "$domain" > /tmp/xui_panel_domain
+                break
+            else
+                echo -e "${red}域名格式不正确，请重新输入。Invalid domain format, please try again.${plain}"
+                retry=$((retry+1))
+                if [[ $retry -ge 3 ]]; then
+                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
+                    exit 1
+                fi
+            fi
+        done
+    fi
+
+    if [[ -z "$email" && -t 0 ]]; then
+        retry=0
+        while [[ $retry -lt 3 ]]; do
+            echo -e "${yellow}请输入联系邮箱 (Let's Encrypt 用于通知证书到期)：${plain}"
+            echo -e "${yellow}Please enter your email address (for Let's Encrypt notifications):${plain}"
+            read -er email </dev/tty || true
+            if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+                echo "$email" > /tmp/xui_panel_email
+                break
+            else
+                echo -e "${red}邮箱格式不正确，请重新输入。Invalid email format, please try again.${plain}"
+                retry=$((retry+1))
+                if [[ $retry -ge 3 ]]; then
+                    echo -e "${yellow}输入次数超过限制，将退出安装。Input attempts exceeded, installation will exit.${plain}"
+                    exit 1
                 fi
             done
-        else
-            echo -e "${red}请使用 --email 参数指定邮箱。Please specify email using --email parameter.${plain}"
-            exit 1
-        fi
+        done
     fi
 }
 
