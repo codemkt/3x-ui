@@ -289,7 +289,7 @@ install_x-ui() {
     cd /usr/local/
 
     if [ $# == 0 ]; then
-        tag_version=$(curl -Ls "https://api.github.com/repos/dmulxw/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(curl -Ls "https://api.github.com/repos/codemkt/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             echo -e "${red}Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later${plain}"
             exit 1
@@ -297,19 +297,19 @@ install_x-ui() {
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
         # 优先用wget，若无wget则尝试curl
         if command -v wget >/dev/null 2>&1; then
-            wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+            wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
         elif command -v curl >/dev/null 2>&1; then
-            curl -Lso /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+            curl -Lso /usr/local/x-ui-linux-$(arch).tar.gz https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
         else
             echo -e "${red}Neither wget nor curl is available, please install one of them first.${plain}"
             echo -e "${yellow}你可以手动下载以下链接并上传到 /usr/local/ 目录：${plain}"
-            echo "https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+            echo "https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
             exit 1
         fi
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
             echo -e "${yellow}你可以手动下载以下链接并上传到 /usr/local/ 目录：${plain}"
-            echo "https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+            echo "https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
             exit 1
         fi
     else
@@ -322,7 +322,7 @@ install_x-ui() {
             exit 1
         fi
 
-        url="https://github.com/dmulxw/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        url="https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
         echo -e "Beginning to install x-ui $1"
         if command -v wget >/dev/null 2>&1; then
             wget -N --no-check-certificate -O /usr/local/x-ui-linux-$(arch).tar.gz ${url}
@@ -360,7 +360,7 @@ install_x-ui() {
 
     chmod +x x-ui bin/xray-linux-$(arch)
     cp -f x-ui.service /etc/systemd/system/
-    wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/dmulxw/3x-ui/main/x-ui.sh
+    wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/codemkt/3x-ui/main/x-ui.sh
     chmod +x /usr/local/x-ui/x-ui.sh
     chmod +x /usr/bin/x-ui
     config_after_install
@@ -668,7 +668,8 @@ generate_default_site() {
     local domain="$1"
     local site_dir="/var/www/default_site"
     mkdir -p "$site_dir"
-    local webzip_url="https://github.com/dmulxw/3x-ui/releases/download/trojan/web.zip"
+    
+    local webzip_url="https://github.com/codemkt/3x-ui/releases/download/v2.6.0/web.zip"
     if curl --head --silent --fail "$webzip_url" >/dev/null; then
         tmpzip="/tmp/web.zip"
         curl -Lso "$tmpzip" "$webzip_url"
@@ -1006,10 +1007,10 @@ auto_ssl_and_nginx() {
     # 显示客户端下载地址
     echo -e "${green}Client download links:${plain}"
     echo -e "${green}客户端下载地址：${plain}"
-    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Trojan-Qt5-MacOS.dmg"
-    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Trojan-Qt5-Linux.AppImage"
-    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Trojan-Qt5-Windows.7z"
-    echo "https://github.com/dmulxw/3x-ui/releases/download/trojan/Igniter-trajon-app-Android-release.apk"
+    echo "macos client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-MacOS.dmg"
+    echo "linux client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-Linux.AppImage"
+    echo "windows client:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/Trojan-Qt5-Windows.7z"
+    echo "adroid app:https://github.com/codemkt/v2rayNG/releases/download/1.10.4/v2rayNG_1.10.4_universal.apk"
     # 输出 trojan 协议链接
     if [[ -n "$trojan_url" ]]; then
         echo ""

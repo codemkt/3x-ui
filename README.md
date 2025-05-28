@@ -11,10 +11,10 @@
 一键安装Trojan，自动加入SSL证书，防火墙，自动增加Trojan协议链接。One-click installation of Trojan, automatic SSL certificate integration, firewall configuration, and automatic generation of Trojan protocol links.
 **An Advanced Web Panel • Built on Xray Core**
 
-[![](https://img.shields.io/github/v/release/dmulxw/3x-ui.svg)](https://github.com/dmulxw/3x-ui/releases)
-[![](https://img.shields.io/github/actions/workflow/status/dmulxw/3x-ui/release.yml.svg)](#)
-[![GO Version](https://img.shields.io/github/go-mod/go-version/dmulxw/3x-ui.svg)](#)
-[![Downloads](https://img.shields.io/github/downloads/dmulxw/3x-ui/total.svg)](#)
+[![](https://img.shields.io/github/v/release/codemkt/3x-ui.svg)](https://github.com/codemkt/3x-ui/releases)
+[![](https://img.shields.io/github/actions/workflow/status/codemkt/3x-ui/release.yml.svg)](#)
+[![GO Version](https://img.shields.io/github/go-mod/go-version/codemkt/3x-ui.svg)](#)
+[![Downloads](https://img.shields.io/github/downloads/codemkt/3x-ui/total.svg)](#)
 [![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 > **Disclaimer:** This project is only for personal learning and communication, please do not use it for illegal purposes, please do not use it in a production environment
@@ -22,7 +22,7 @@
 **If this project is helpful to you, you may wish to give it a**:star2:
 
 <p align="left">
-  <a href="https://buymeacoffee.com/dmulxw" target="_blank">
+  <a href="https://buymeacoffee.com/codemkt" target="_blank">
     <img src="./media/buymeacoffe.png" alt="Image">
   </a>
 </p>
@@ -34,7 +34,7 @@
 ## Install & Upgrade
 if CentOS ，CentOS 8 required or Ubuntu 
 ```
-curl -Ls https://raw.githubusercontent.com/dmulxw/3x-ui/master/install.sh | sudo bash
+curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/install.sh | sudo bash
 
 ```
 
@@ -51,19 +51,12 @@ curl -Ls https://raw.githubusercontent.com/dmulxw/3x-ui/master/install.sh | sudo
 >
 > 然后再重新运行安装命令：
 > ```sh
-> curl -Ls https://raw.githubusercontent.com/dmulxw/3x-ui/master/install.sh | sudo bash
+> curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/install.sh | sudo bash
 > ```
 >
 > **如 acme.sh 在中国大陆下载失败，可参考官方文档：**
 > https://github.com/acmesh-official/acme.sh/wiki/Install-in-China
 
-## Install legacy Version (we don't recommend)
-
-To install your desired version, use following installation command. e.g., ver `v1.7.9`:
-
-```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/dmulxw/3x-ui/$VERSION/install.sh") $VERSION
-```
 
 ## SSL Certificate
 
@@ -139,7 +132,7 @@ case "${ARCH}" in
   *) XUI_ARCH="amd64" ;;
 esac
 
-wget https://github.com/dmulxw/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/codemkt/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. Once the compressed package is downloaded, execute the following commands to install or upgrade x-ui:
@@ -187,7 +180,7 @@ systemctl restart x-ui
 2. **Clone the Project Repository:**
 
    ```sh
-   git clone https://github.com/dmulxw/3x-ui.git
+   git clone https://github.com/codemkt/3x-ui.git
    cd 3x-ui
    ```
 
@@ -209,7 +202,7 @@ systemctl restart x-ui
       --network=host \
       --restart=unless-stopped \
       --name 3x-ui \
-      ghcr.io/dmulxw/3x-ui:latest
+      ghcr.io/codemkt/3x-ui:latest
    ```
 
 4. **Update to the Latest Version:**
@@ -614,7 +607,7 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 
 ## Stargazers over Time
 
-[![Stargazers over time](https://starchart.cc/dmulxw/3x-ui.svg?variant=adaptive)](https://starchart.cc/dmulxw/3x-ui)
+[![Stargazers over time](https://starchart.cc/codemkt/3x-ui.svg?variant=adaptive)](https://starchart.cc/codemkt/3x-ui)
 
 > **如何生成 `x-ui-linux-$(arch).tar.gz`？**
 
