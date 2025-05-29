@@ -26,7 +26,7 @@ curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/install.sh | sud
 
 **If this project is helpful to you, you may wish to give it a**:star2:
 
-<p align="left">
+<p align="left" style="display:none;">
   <a href="https://buymeacoffee.com/codemkt" target="_blank">
     <img src="./media/buymeacoffe.png" alt="Image">
   </a>
