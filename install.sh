@@ -657,8 +657,8 @@ install_acme() {
     fi
     echo -e "${yellow}Installing acme.sh...${plain}"
     echo -e "${yellow}正在安装 acme.sh...${plain}"
-    # 优先尝试 acme.sh 官方脚本
-    curl -s https://get.acme.sh | sh -s -- --force
+    # 移除了 --force 参数，因为不是必需的
+    curl -s https://get.acme.sh | sh
     if [ $? -ne 0 ] || [ ! -f ~/.acme.sh/acme.sh ]; then
         echo -e "${red}acme.sh official script installation failed, trying jsdelivr China mirror...${plain}"
         echo -e "${red}acme.sh 官方脚本安装失败，尝试使用 jsdelivr 国内镜像源...${plain}"
@@ -864,8 +864,8 @@ auto_ssl_and_nginx() {
             remark="Tr_$(date +%y%m%d%H%M%S)$(gen_random_string 2)"
             protocol="trojan"
             
-            # 添加证书和密钥文件路径
-            trojan_url="trojan://${trojan_pass}@${domain}:${trojan_port}?type=tcp&security=tls&fp=chrome&allowInsecure=0&cerfile=${cert_file}&keyfile=${key_file}#${remark}"
+            # 修改这里：移除 cerfile 和 keyfile 参数
+            trojan_url="trojan://${trojan_pass}@${domain}:${trojan_port}?type=tcp&security=tls&fp=chrome&allowInsecure=0#${remark}"
 
             echo -e "${yellow}正在添加 Trojan 入站...${plain}"
             add_output=$(/usr/local/x-ui/x-ui setting -AddInbound "$trojan_url" 2>&1)

@@ -11,6 +11,10 @@
 ### 一键安装Trojan，自动加入SSL证书，防火墙，自动增加Trojan协议链接
 一键安装Trojan，自动加入SSL证书，防火墙，自动增加Trojan协议链接。One-click installation of Trojan, automatic SSL certificate integration, firewall configuration, and automatic generation of Trojan protocol links.
 **An Advanced Web Panel • Built on Xray Core**
+```
+curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/install.sh | sudo bash
+
+```
 
 [![](https://img.shields.io/github/v/release/codemkt/3x-ui.svg)](https://github.com/codemkt/3x-ui/releases)
 [![](https://img.shields.io/github/actions/workflow/status/codemkt/3x-ui/release.yml.svg)](#)
