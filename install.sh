@@ -975,57 +975,72 @@ pre_check_input() {
     echo "---------------------------------------------"
 }
 
-# 修改主流程调用顺序
-pre_check_input    # 确保这是第一个执行的函数
-install_base
-install_x-ui $1
-auto_ssl_and_nginx
-check_firewall_ports
+# 修改主流程调用顺序，确保显式调用 auto_ssl_and_nginx
+main() {
+    pre_check_input    # 获取域名和邮箱
+    install_base      # 安装基础组件
+    install_x-ui $1   # 安装面板
+    
+    # 确保证书配置在面板安装后执行
+    echo -e "${yellow}正在配置SSL证书...${plain}"
+    echo -e "${yellow}Configuring SSL certificate...${plain}"
+    auto_ssl_and_nginx
+    
+    check_firewall_ports
 
-# 修改主流程最后的信息展示
-echo -e "\n${yellow}=== 安装完成 Installation Complete ===${plain}"
-echo -e "\n${green}=== 面板登录信息 Panel Login Info ===${plain}"
-echo -e "---------------------------------------------"
-info=$(/usr/local/x-ui/x-ui setting -show true)
-username=$(echo "$info" | grep -Eo 'username: .+' | awk '{print $2}')
-password=$(echo "$info" | grep -Eo 'password: .+' | awk '{print $2}')
-port=$(echo "$info" | grep -Eo 'port: .+' | awk '{print $2}')
-webBasePath=$(echo "$info" | grep -Eo 'webBasePath: .+' | awk '{print $2}')
-webBasePathClean=$(echo "$webBasePath" | sed 's#^/*##;s#/*$##')
-server_ip=$(curl -s https://api.ipify.org)
-panel_domain=""
-if [[ -f /tmp/xui_panel_domain ]]; then
-    panel_domain=$(cat /tmp/xui_panel_domain)
-fi
+    # 显示安装信息
+    show_installation_info
+}
 
-echo -e "${green}用户名 Username: ${username}${plain}"
-echo -e "${green}密码 Password: ${password}${plain}" 
+# 将最后的信息展示移到单独的函数中
+show_installation_info() {
+    echo -e "\n${yellow}=== 安装完成 Installation Complete ===${plain}"
+    echo -e "\n${green}=== 面板登录信息 Panel Login Info ===${plain}"
+    echo -e "---------------------------------------------"
+    info=$(/usr/local/x-ui/x-ui setting -show true)
+    username=$(echo "$info" | grep -Eo 'username: .+' | awk '{print $2}')
+    password=$(echo "$info" | grep -Eo 'password: .+' | awk '{print $2}')
+    port=$(echo "$info" | grep -Eo 'port: .+' | awk '{print $2}')
+    webBasePath=$(echo "$info" | grep -Eo 'webBasePath: .+' | awk '{print $2}')
+    webBasePathClean=$(echo "$webBasePath" | sed 's#^/*##;s#/*$##')
+    server_ip=$(curl -s https://api.ipify.org)
+    panel_domain=""
+    if [[ -f /tmp/xui_panel_domain ]]; then
+        panel_domain=$(cat /tmp/xui_panel_domain)
+    fi
 
-if [[ -n "$panel_domain" ]]; then
-    echo -e "\n${green}=== 面板访问链接 Panel Access URLs ===${plain}"
-    echo -e "${yellow}请优先使用 HTTPS 链接访问面板 Please use HTTPS URL:${plain}"
-    echo -e "${green}https://${panel_domain}:${port}/${webBasePathClean}${plain}"
-    echo -e "${red}如需使用 HTTP 链接(不推荐) HTTP URL (Not Recommended):${plain}"
-    echo -e "${red}http://${panel_domain}:${port}/${webBasePathClean}${plain}"
-else
-    echo -e "\n${yellow}未配置域名,当前仅支持IP访问(不安全) No domain configured, only IP access available (Not secure):${plain}"
-    echo -e "${red}http://${server_ip}:${port}/${webBasePathClean}${plain}"
-fi
+    echo -e "---------------------------------------------"
+    echo -e "${green}用户名 Username: ${username}${plain}"
+    echo -e "${green}密码 Password: ${password}${plain}" 
 
-# 获取已添加的trojan入站信息
-if [[ -n "$trojan_port" && -n "$trojan_pass" && -n "$domain" ]]; then
-    echo -e "\n${green}=== Trojan 入站信息 Trojan Inbound Info ===${plain}"
-    echo -e "${green}端口 Port: ${trojan_port}${plain}"
-    echo -e "${green}密码 Password: ${trojan_pass}${plain}"
-    echo -e "${green}备注 Remark: ${remark}${plain}"
-    echo -e "\n${yellow}Trojan 一键导入链接 Import URL:${plain}"
-    echo -e "${green}${trojan_url}${plain}"
-fi
+    if [[ -n "$panel_domain" ]]; then
+        echo -e "\n${green}=== 面板访问链接 Panel Access URLs ===${plain}"
+        echo -e "${yellow}请优先使用 HTTPS 链接访问面板 Please use HTTPS URL:${plain}"
+        echo -e "${green}https://${panel_domain}:${port}/${webBasePathClean}${plain}"
+       
+    else
+        echo -e "\n${yellow}未配置域名,当前仅支持IP访问(不安全) No domain configured, only IP access available (Not secure):${plain}"
+        echo -e "${red}http://${server_ip}:${port}/${webBasePathClean}${plain}"
+    fi
+    echo -e "---------------------------------------------"
+    # 获取已添加的trojan入站信息
+    if [[ -n "$trojan_port" && -n "$trojan_pass" && -n "$domain" ]]; then
+        echo -e "\n${green}=== Trojan 入站信息 Trojan Inbound Info ===${plain}"
+        echo -e "${green}端口 Port: ${trojan_port}${plain}"
+        echo -e "${green}密码 Password: ${trojan_pass}${plain}"
+        echo -e "${green}备注 Remark: ${remark}${plain}"
+        echo -e "\n${yellow}Trojan 一键导入链接 Import URL:${plain}"
+        echo -e "${green}${trojan_url}${plain}"
+    fi
 
-echo -e "\n${yellow}=== 安全提示 Security Notes ===${plain}"
-echo -e "${yellow}1. 请立即保存上述信息,此信息仅显示一次!${plain}"
-echo -e "${yellow}1. Please save the above information now, it will only be shown once!${plain}"
-echo -e "${yellow}2. 如需重新查看面板配置,请使用命令:${plain}"
-echo -e "${yellow}2. To view panel settings again, use command:${plain}"
-echo -e "${green}   x-ui settings${plain}"
-echo -e "---------------------------------------------"
+    echo -e "\n${yellow}=== 安全提示 Security Notes ===${plain}"
+    echo -e "${yellow}1. 请立即保存上述信息,此信息仅显示一次!${plain}"
+    echo -e "${yellow}1. Please save the above information now, it will only be shown once!${plain}"
+    echo -e "${yellow}2. 如需重新查看面板配置,请使用命令:${plain}"
+    echo -e "${yellow}2. To view panel settings again, use command:${plain}"
+    echo -e "${green}   x-ui settings${plain}"
+    echo -e "---------------------------------------------"
+}
+
+# 调用主函数
+main "$@"
