@@ -12,6 +12,9 @@
 一键安装Trojan，自动加入SSL证书，防火墙，自动增加Trojan协议链接。One-click installation of Trojan, automatic SSL certificate integration, firewall configuration, and automatic generation of Trojan protocol links.
 **An Advanced Web Panel • Built on Xray Core**
 ```
+curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/xui_trojan_installer_ubuntu18plus.sh | sudo bash
+```
+```
 curl -Ls https://raw.githubusercontent.com/codemkt/3x-ui/master/install.sh | sudo bash
 
 ```
