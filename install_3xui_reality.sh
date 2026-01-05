@@ -158,7 +158,10 @@ dns_check() {
     echo -e "${green}解析到的 IP: ${resolved:-<empty>}${plain}"
     echo -e "${yellow}说明：申请证书(standalone)要求域名 A/AAAA 记录解析到当前服务器公网 IP，并且 80 端口可从公网访问。${plain}"
 
-    if [[ -n "$myip" && -n "$resolved" && "$resolved" != "$myip" ]]; then
+    if [[ -z "$resolved" ]]; then
+        echo -e "${red}[WARN] 未解析到任何 A/AAAA 记录（resolved=<empty>）。${plain}"
+        echo -e "${yellow}这通常表示 DNS 还未生效/未设置记录，申请证书大概率失败。建议先在 DNS 控制台添加 A/AAAA 并等待生效。${plain}"
+    elif [[ -n "$myip" && "$resolved" != "$myip" ]]; then
         echo -e "${red}[WARN] 解析 IP 与本机公网 IP 不一致：${resolved} != ${myip}${plain}"
         echo -e "${yellow}继续安装不会阻止，但证书申请大概率失败。请先修正 DNS A/AAAA 记录。${plain}"
     else
@@ -305,7 +308,7 @@ install_x-ui() {
     cd /usr/local/ || exit 1
 
     local tag_version=""
-    if [ $# == 0 ]; then
+    if [[ $# -eq 0 || -z "${1:-}" ]]; then
         tag_version="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://api.github.com/repos/codemkt/3x-ui/releases/latest" \
           | grep -m1 '"tag_name":' \
           | sed -E 's/.*"tag_name":[ ]*"([^"]+)".*/\1/' \
@@ -670,7 +673,12 @@ main() {
     install_base
     sync_time_and_tz
 
-    install_x-ui "${1:-}"
+    # Install 3x-ui (optional version arg)
+    if [[ $# -ge 1 && -n "${1:-}" ]]; then
+        install_x-ui "$1"
+    else
+        install_x-ui
+    fi
 
     auto_ssl_and_nginx || true
 
