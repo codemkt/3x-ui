@@ -308,37 +308,49 @@ install_x-ui() {
     cd /usr/local/ || exit 1
 
     local tag_version=""
-    if [[ $# -eq 0 || -z "${1:-}" ]]; then
-        tag_version="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://api.github.com/repos/codemkt/3x-ui/releases/latest" \
+    local url=""
+
+    if [ $# == 0 ]; then
+        # Prefer "latest download" to avoid GitHub API rate-limit / parsing issues
+        url="https://github.com/codemkt/3x-ui/releases/latest/download/x-ui-linux-$(arch).tar.gz"
+        tag_version="latest"
+
+        # Best-effort: try to fetch latest tag for display only (does not affect download URL)
+        local api_tag=""
+        api_tag="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://api.github.com/repos/codemkt/3x-ui/releases/latest" \
           | grep -m1 '"tag_name":' \
           | sed -E 's/.*"tag_name":[ ]*"([^"]+)".*/\1/' \
           | tr -d '\r' \
           | xargs || true)"
-        if [[ -z "${tag_version}" ]]; then
-          tag_version="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://api.github.com/repos/codemkt/3x-ui/releases?per_page=1" \
-            | grep -m1 '"tag_name":' \
-            | sed -E 's/.*"tag_name":[ ]*"([^"]+)".*/\1/' \
-            | tr -d '\r' \
-            | xargs || true)"
-        fi
-        if [[ -z "${tag_version}" ]]; then
-          tag_version="v2.6.0"
-          echo -e "${yellow}[WARN] GitHub API 未取到版本号，已回退到 ${tag_version}。${plain}"
+        if [[ -n "$api_tag" ]]; then
+            tag_version="$api_tag"
         else
-          echo -e "Got 3x-ui latest version: ${tag_version}, beginning installation..."
+            echo -e "${yellow}[WARN] GitHub API 未取到版本号，将使用 latest 下载地址。${plain}"
         fi
+        echo -e "Beginning to install 3x-ui (${tag_version}) ..."
     else
-        tag_version="$1"
-        tag_version="$(echo "$tag_version" | tr -d '\r' | xargs)"
+        tag_version="$(echo "$1" | tr -d '\r' | xargs)"
+        if [[ -z "$tag_version" ]]; then
+            tag_version="latest"
+            url="https://github.com/codemkt/3x-ui/releases/latest/download/x-ui-linux-$(arch).tar.gz"
+            echo -e "${yellow}[WARN] 传入版本号为空，改用 latest 下载地址。${plain}"
+        else
+            url="https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        fi
         echo -e "Beginning to install 3x-ui ${tag_version}"
     fi
 
-    local url="https://github.com/codemkt/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
-
+    # Download tarball
     if command -v wget >/dev/null 2>&1; then
-        wget -N --no-check-certificate -O "/usr/local/x-ui-linux-$(arch).tar.gz" "${url}"
+        wget -N --no-check-certificate -O "/usr/local/x-ui-linux-$(arch).tar.gz" "${url}" || {
+            echo -e "${yellow}[WARN] 指定地址下载失败，回退到 latest 下载地址重试...${plain}"
+            wget -N --no-check-certificate -O "/usr/local/x-ui-linux-$(arch).tar.gz" "https://github.com/codemkt/3x-ui/releases/latest/download/x-ui-linux-$(arch).tar.gz"
+        }
     elif command -v curl >/dev/null 2>&1; then
-        curl -Lso "/usr/local/x-ui-linux-$(arch).tar.gz" "${url}"
+        curl -Lso "/usr/local/x-ui-linux-$(arch).tar.gz" "${url}" || {
+            echo -e "${yellow}[WARN] 指定地址下载失败，回退到 latest 下载地址重试...${plain}"
+            curl -Lso "/usr/local/x-ui-linux-$(arch).tar.gz" "https://github.com/codemkt/3x-ui/releases/latest/download/x-ui-linux-$(arch).tar.gz"
+        }
     else
         echo -e "${red}Neither wget nor curl available.${plain}"
         exit 1
